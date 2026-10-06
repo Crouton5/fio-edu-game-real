@@ -18,6 +18,7 @@ const TYPES = {
   tuimel:    { n: 'Tuimelschakelaar',  g: 'Schakelaars' },
   ampere:    { n: 'Ampèremeter',       g: 'Meters' },
   volt:      { n: 'Voltmeter',         g: 'Meters' },
+  draad:     { n: 'Draad',             g: 'Draden', r: 0.001 },
   gum:       { n: 'Gum',               g: 'Testobjecten', r: 1e9 },
   liniaal:   { n: 'Houten liniaal',    g: 'Testobjecten', r: 1e9 },
   munt:      { n: 'Koperen muntje',    g: 'Testobjecten', r: 0.01 },
@@ -108,10 +109,13 @@ function update() {
   sol = solve();
   let burnt = false;
   comps.forEach(c => {
-    if (c.type === 'lamp' && !c.burned && sol.I[c.id] ** 2 * c.val > BURN_W) { c.burned = true; burnt = true; }
+    if (c.type === 'lamp' && !c.burned && sol.I[c.id] ** 2 * c.val > BURN_W) { burnW = sol.I[c.id] ** 2 * c.val; c.burned = true; burnt = true; }
   });
-  if (burnt) { sol = solve(); renderProps(); }
+  if (burnt) { sol = solve(); renderProps(); lose('burn', burnW); }
   shorted = comps.some(c => isSrc(c.type) && Math.abs(sol.I[c.id]) > SHORT_A);
+  shortT = shorted ? shortT + dt : 0;                 // 1,2 s uitstel: geen pop-up bij een kort tussenmomentje
+  if (!shorted) shortFired = false;
+  else if (shortT > 1.2 && !shortFired) { shortFired = true; lose('short'); }
   const b = $('banner');
   if (shorted) b.textContent = 'Kortsluiting! De stroom loopt zonder weerstand van + naar −. Haal een draad weg of voeg een verbruiker toe.';
   else if (comps.some(c => c.burned)) b.textContent = 'Lampje doorgebrand: de spanning was te hoog. Selecteer het lampje en klik op Herstel.';
@@ -187,6 +191,7 @@ function drawComp(c) {
       text(fmt(a ? Math.abs(I) : U) + (a ? ' A' : ' V'), 0, 34, 'bold 13px system-ui', INK);
       break;
     }
+    case 'draad': ctx.strokeStyle = real ? '#b8622a' : INK; ctx.lineWidth = real ? 5 : 2.5; L(-20, 0, 20, 0); break;
     case 'gum': real ? rr(-18, -10, 36, 20, '#f0a3b8') : rr(-18, -8, 36, 16, '#fff'); break;
     case 'liniaal':
       if (real) { rr(-26, -9, 52, 18, '#e3c58f'); for (let x = -22; x <= 22; x += 6) L(x, -9, x, -4); }
@@ -368,6 +373,62 @@ function updateReadout() {
   r.textContent = `Spanning: ${fmt(U)} V · Stroom: ${fmt(I)} A` + (sel.type === 'lamp' ? ` · Vermogen: ${fmt(U * I)} W` : '');
 }
 
+/* ---------- Beloning & pop-ups ---------- */
+const POINTS = 150;
+let points = 0, stars = 0, shortT = 0, shortFired = false, burnW = 0, hintUsed = false, failed = false, modalAct = null;
+
+function renderScore() {
+  $('scorePts').textContent = points + ' punten';
+  $('scoreStars').textContent = '★ ' + stars;
+}
+function bump(id) { const e = $(id); e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
+
+function showModal(kind, o) {
+  $('modal').className = 'overlay ' + kind;
+  $('mIcon').textContent = o.icon;
+  $('mTitle').textContent = o.title;
+  $('mStars').hidden = !o.stars;
+  if (o.stars) $('mStars').textContent = '★'.repeat(o.stars) + '☆'.repeat(3 - o.stars);
+  $('mPoints').hidden = !o.points;
+  if (o.points) $('mPoints').textContent = '+' + o.points + ' punten';
+  $('mText').textContent = o.text;
+  $('mPrimary').textContent = o.primaryLabel;
+  $('mSecondary').textContent = o.secondaryLabel || '';
+  $('mSecondary').hidden = !o.secondaryLabel;
+  modalAct = o.onPrimary;
+  $('modal').hidden = false;
+  $('mPrimary').focus();
+}
+const closeModal = () => { $('modal').hidden = true; };
+$('mPrimary').onclick = () => { closeModal(); if (modalAct) modalAct(); };
+$('mSecondary').onclick = closeModal;
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+
+function winChallenge() {
+  const n = Math.max(1, 3 - (hintUsed ? 1 : 0) - (failed ? 1 : 0));   // 3 sterren: zonder tip en zonder fout
+  points += POINTS; stars += n;
+  renderScore(); bump('scorePts'); bump('scoreStars');
+  const last = cur >= CH.length - 1;
+  showModal('win', {
+    icon: '🏆', title: 'You Win!', stars: n, points: POINTS,
+    text: `Gefeliciteerd! Je hebt "${CH[cur].t}" afgerond. ${CH[cur].win}`,
+    primaryLabel: last ? 'Klaar' : 'Volgende opdracht', secondaryLabel: 'Blijf bouwen',
+    onPrimary: () => { if (!last) pickChallenge(cur + 1); }
+  });
+}
+function lose(kind, w) {
+  failed = true;
+  const burn = kind === 'burn';
+  showModal('lose', {
+    icon: burn ? '💡' : '🔥', title: 'You Lose',
+    text: burn
+      ? `Het lampje is doorgebrand: het kreeg ${fmt(w)} W, maar kan maximaal ${fmt(BURN_W)} W aan (P = U × I). De spanning was te hoog of de weerstand te laag. Verlaag de spanning of verhoog de weerstand en probeer het opnieuw.`
+      : 'Kortsluiting! De stroom liep zonder weerstand van + naar −, waardoor de batterij oververhit raakt. Zoek de directe verbinding en haal die weg, of zet een lampje in de kring.',
+    primaryLabel: 'Opnieuw proberen',
+    onPrimary: () => { if (burn) comps.forEach(c => { c.burned = false; }); renderProps(); }
+  });
+}
+
 /* ---------- Opdrachten (beginnersniveau, volgorde van het werkboek) ---------- */
 const lamps = () => comps.filter(c => c.type === 'lamp' && !c.burned);
 const anyLit = () => lamps().some(l => lit(l, sol));
@@ -475,7 +536,7 @@ const CH = [
       return !shorted && !!L && comps.some(c => c.type === 'volt' && sol.U[c.id] > 0.3 && A(sol.U[c.id] - sol.U[L.id]) < 0.05);
     } },
 
-  { t: 'Kortsluiting oplossen',
+  { t: 'Kortsluiting oplossen', startsShorted: true,
     goal: 'De batterij wordt heet! Zoek de oorzaak en los de kortsluiting op, zodat het lampje brandt.',
     needs: 'Alles ligt al op het bord',
     hint: 'Kortsluiting is een verbinding van + naar − zonder weerstand. Welk onderdeel staat los van het lampje direct op de batterij aangesloten? Klik erop.',
@@ -500,14 +561,16 @@ function renderChallenges() {
   $('challenges').innerHTML = h + '</div>';
 }
 function pickChallenge(i) {
-  cur = i; lastOk = false; hintOpen = false;
+  cur = i; lastOk = false; hintOpen = false; hintUsed = false; failed = false;
+  closeModal();
   clearAll();
   if (CH[cur].setup) CH[cur].setup();
+  shortT = 0; shortFired = !!CH[cur].startsShorted;
   renderChallenges();
 }
 $('challenges').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.id === 'hintBtn') { hintOpen = !hintOpen; renderChallenges(); }
+  if (b.id === 'hintBtn') { hintOpen = !hintOpen; if (hintOpen) hintUsed = true; renderChallenges(); }
   else if (b.id === 'nextBtn') pickChallenge(cur + 1);
   else pickChallenge(+b.dataset.i);
 });
@@ -517,8 +580,10 @@ function updateChallenge() {
   const ok = !!c.check();
   if (ok === lastOk) return;
   lastOk = ok;
+  const first = ok && !done.has(cur);
   if (ok) done.add(cur);
   renderChallenges();
+  if (first) winChallenge();
 }
 
 /* ---------- Toolbar & setup ---------- */
@@ -538,5 +603,5 @@ function resize() {
 }
 new ResizeObserver(resize).observe(cv);
 
-renderTools(); renderProps(); renderChallenges(); resize();
+renderTools(); renderProps(); renderChallenges(); renderScore(); resize();
 requestAnimationFrame(frame);

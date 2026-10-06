@@ -10,6 +10,10 @@
   <header>
     <h1>Stroomkring-sandbox</h1>
     <div class="tools">
+      <div class="score" aria-live="polite">
+        <span id="scorePts">0 punten</span>
+        <span id="scoreStars">★ 0</span>
+      </div>
       <button id="btnView"></button>
       <button id="btnDir"></button>
       <button id="btnClear">Alles wissen</button>
@@ -27,6 +31,20 @@
       <section id="challenges"></section>
     </aside>
   </main>
+
+  <div id="modal" class="overlay" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <div id="mIcon" class="m-icon"></div>
+      <h2 id="mTitle"></h2>
+      <div id="mStars" class="m-stars" hidden></div>
+      <p id="mPoints" class="m-points" hidden></p>
+      <p id="mText"></p>
+      <div class="m-actions">
+        <button id="mSecondary" hidden></button>
+        <button id="mPrimary" class="primary"></button>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>

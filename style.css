@@ -106,3 +106,46 @@ output { font-weight: 700; }
 .chcard p { margin: 6px 0; }
 #challenges .chlist button { padding: 5px 10px; margin-bottom: 4px; }
 #challenges .chcard button { display: inline-block; width: auto; margin-top: 4px; }
+
+/* Score */
+.score {
+  display: flex; align-items: center; gap: 12px;
+  padding: 5px 14px; font-weight: 700;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 999px;
+}
+.score span { display: inline-block; }
+#scoreStars { color: #b7791f; }
+.bump { animation: bump 0.4s ease; }
+
+/* Pop-ups */
+.overlay {
+  position: fixed; inset: 0; z-index: 10;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(22, 32, 42, 0.55);
+  animation: fade 0.2s ease;
+}
+.overlay[hidden] { display: none; }
+.dialog {
+  width: min(420px, 100%); padding: 24px 22px; text-align: center;
+  background: var(--panel); border-top: 6px solid var(--accent); border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  animation: pop 0.25s ease;
+}
+.win .dialog { border-top-color: var(--good); }
+.lose .dialog { border-top-color: var(--bad); }
+.m-icon { font-size: 2.6rem; line-height: 1; }
+.dialog h2 { margin: 8px 0 4px; font-size: 1.6rem; }
+.win h2 { color: var(--good); }
+.lose h2 { color: var(--bad); }
+.m-stars { font-size: 2rem; letter-spacing: 4px; color: #e0a100; }
+.m-points { margin: 4px 0; font-weight: 700; }
+.dialog p { margin: 8px 0; }
+.m-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+button.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+.win button.primary { background: var(--good); border-color: var(--good); }
+.lose button.primary { background: var(--bad); border-color: var(--bad); }
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.88); } }
+@keyframes bump { 40% { transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { .overlay, .dialog, .bump { animation: none; } }
