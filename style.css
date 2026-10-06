@@ -100,3 +100,9 @@ output { font-weight: 700; }
   #palette { border-right: 0; border-bottom: 1px solid var(--line); }
   aside { border-left: 0; border-top: 1px solid var(--line); }
 }
+
+.chcard { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.chcard h3 { margin: 0 0 6px; font-size: 0.95rem; }
+.chcard p { margin: 6px 0; }
+#challenges .chlist button { padding: 5px 10px; margin-bottom: 4px; }
+#challenges .chcard button { display: inline-block; width: auto; margin-top: 4px; }

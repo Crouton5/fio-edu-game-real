@@ -368,38 +368,157 @@ function updateReadout() {
   r.textContent = `Spanning: ${fmt(U)} V · Stroom: ${fmt(I)} A` + (sel.type === 'lamp' ? ` · Vermogen: ${fmt(U * I)} W` : '');
 }
 
-/* ---------- Challenges ---------- */
+/* ---------- Opdrachten (beginnersniveau, volgorde van het werkboek) ---------- */
+const lamps = () => comps.filter(c => c.type === 'lamp' && !c.burned);
+const anyLit = () => lamps().some(l => lit(l, sol));
+const hasSrc = () => comps.some(c => isSrc(c.type));
+const OBJECTS = ['gum', 'liniaal', 'munt', 'potlood'];
+const A = x => Math.abs(x);
+
 const CH = [
-  { t: 'Vrij bouwen', d: 'Bouw wat je wilt. Probeer ook de testobjecten: welke laten stroom door?' },
-  { t: '1. Parallel', d: 'Laat 2 lampjes branden op 1 batterij. Als er één stukgaat, moet de andere blijven branden.',
-    check() {
-      const Ls = comps.filter(c => c.type === 'lamp' && !c.burned);
-      if (Ls.length < 2 || shorted || !comps.some(c => isSrc(c.type)) || !Ls.every(l => lit(l, sol))) return false;
+  { t: 'Vrij bouwen',
+    goal: 'Bouw wat je wilt en probeer dingen uit.',
+    needs: 'Alle onderdelen' },
+
+  { t: 'Het lampje laten branden',
+    goal: 'Laat het lampje branden.',
+    needs: 'Batterij, lampje, 2 draden',
+    hint: 'Maak een gesloten kring: van de + van de batterij naar het lampje, en van het lampje terug naar de −. Sleep van een aansluitpunt (cirkeltje) naar een ander aansluitpunt om een draad te maken.',
+    win: 'Dit is een stroomkring: de stroom kan van + via het lampje terug naar −.',
+    check: () => !shorted && hasSrc() && anyLit() },
+
+  { t: 'Aan en uit met een schakelaar',
+    goal: 'Bouw een kring waarin je het lampje met de tuimelschakelaar aan en uit kunt zetten. Laat hem eindigen in de stand "aan".',
+    needs: 'Batterij, lampje, tuimelschakelaar, 3 draden',
+    hint: 'Zet de schakelaar in dezelfde kring als het lampje (in serie). Klik op de schakelaar om hem te sluiten of te openen.',
+    win: 'Een open schakelaar onderbreekt de kring, dus dan loopt er geen stroom.',
+    check: () => {
+      const s = comps.find(c => c.type === 'tuimel' && c.closed);
+      if (!s || shorted || !anyLit()) return false;
+      const open = solve(s.id);
+      return !lamps().some(l => lit(l, open));
+    } },
+
+  { t: 'De stroom meten',
+    goal: 'Laat het lampje branden en meet de stroomsterkte door het lampje met de ampèremeter.',
+    needs: 'Batterij, lampje, ampèremeter',
+    hint: 'Een ampèremeter zet je in serie: in de kring zelf, net als een schakelaar. Niet ernaast.',
+    win: 'In serie meet je precies de stroom die door het lampje gaat.',
+    check: () => {
+      const L = lamps().find(l => lit(l, sol));
+      return !shorted && !!L && comps.some(c => c.type === 'ampere' && A(sol.I[c.id]) > 0.005 && A(A(sol.I[c.id]) - A(sol.I[L.id])) < 0.005);
+    } },
+
+  { t: 'De spanning meten',
+    goal: 'Laat het lampje branden en meet de spanning over het lampje met de voltmeter.',
+    needs: 'Batterij, lampje, voltmeter',
+    hint: 'Bouw eerst de kring zonder voltmeter. Verbind daarna de twee aansluitingen van de voltmeter met de twee kanten van het lampje (parallel).',
+    win: 'Een voltmeter sluit je parallel aan, over het onderdeel dat je wilt meten.',
+    check: () => {
+      const L = lamps().find(l => lit(l, sol));
+      return !shorted && !!L && comps.some(c => c.type === 'volt' && sol.U[c.id] > 0.3 && A(sol.U[c.id] - sol.U[L.id]) < 0.05);
+    } },
+
+  { t: 'Geleider of isolator?',
+    goal: 'Zet een testobject in de kring zodat het lampje brandt. Probeer alle objecten uit: welke laten stroom door?',
+    needs: 'Batterij, lampje, testobject (gum, liniaal, muntje, potlood)',
+    hint: 'Zet het testobject in serie met het lampje, zoals je met de schakelaar deed. Brandt het lampje niet? Dan is het object een isolator.',
+    win: 'Objecten waarmee het lampje brandt zijn geleiders. De andere zijn isolatoren.',
+    check: () => !shorted && anyLit() && comps.some(c => OBJECTS.includes(c.type) && A(sol.I[c.id]) > 0.01) },
+
+  { t: 'Serieschakeling',
+    goal: 'Zet twee lampjes achter elkaar en laat ze allebei branden.',
+    needs: 'Batterij, 2 lampjes',
+    hint: 'Verbind lampje 1 met lampje 2, en sluit de uiteinden aan op de batterij. Branden ze zwak? Klik op de batterij en zet de spanning hoger.',
+    win: 'In serie is de stroomsterkte overal even groot. Gaat één lampje stuk, dan gaat het andere ook uit.',
+    check: () => {
+      const Ls = lamps();
+      if (shorted || Ls.length < 2 || !Ls.every(l => lit(l, sol))) return false;
+      if (!Ls.every(l => A(A(sol.I[l.id]) - A(sol.I[Ls[0].id])) < 0.002)) return false;
+      return Ls.every(x => { const s = solve(x.id); return Ls.every(l => l === x || !lit(l, s)); });
+    } },
+
+  { t: 'Parallelschakeling',
+    goal: 'Laat 2 lampjes branden op 1 batterij. Als één lampje stukgaat, moet het andere blijven branden.',
+    needs: 'Batterij, 2 lampjes',
+    hint: 'Geef elk lampje zijn eigen weg: verbind beide lampjes apart met de + en de − van de batterij.',
+    win: 'In een parallelschakeling heeft elk lampje een eigen tak. De ene tak werkt ook als de andere stuk is.',
+    check: () => {
+      const Ls = lamps();
+      if (shorted || Ls.length < 2 || !hasSrc() || !Ls.every(l => lit(l, sol))) return false;
       return Ls.every(x => { const s = solve(x.id); return Ls.every(l => l === x || lit(l, s)); });
     } },
-  { t: '2. Precies 0,5 A', d: 'Zorg dat de ampèremeter precies 0,5 A aangeeft. Tip: I = U / R.',
-    check: () => !shorted && comps.some(c => c.type === 'ampere' && Math.abs(Math.abs(sol.I[c.id]) - 0.5) < 0.01) },
-  { t: '3. Foutzoeken: draad los', d: 'Deze schakeling doet niets. Vind de fout en repareer hem.',
-    setup: () => load([['batterij', 180, 300], ['lamp', 400, 160], ['weerstand', 400, 300]], [[0, 1, 1, 0], [1, 1, 2, 1]]),
-    check: () => comps.some(c => c.type === 'lamp' && lit(c, sol)) },
-  { t: '4. Foutzoeken: voltmeter', d: 'Het lampje brandt bijna niet. Er is iets verkeerd aangesloten. Laat het lampje branden en de voltmeter de lampspanning meten.',
-    setup: () => load([['batterij', 180, 300], ['lamp', 400, 160], ['volt', 400, 300]], [[0, 1, 1, 0], [1, 1, 2, 1], [2, 0, 0, 0]]),
-    check: () => comps.some(c => c.type === 'lamp' && lit(c, sol)) && comps.some(c => c.type === 'volt' && sol.U[c.id] > 0.3) }
+
+  { t: 'Precies 0,5 A',
+    goal: 'Zorg dat de ampèremeter precies 0,5 A aangeeft.',
+    needs: 'Spanningsbron, lampje of weerstand, ampèremeter',
+    hint: 'Gebruik I = U / R. Met 6 V en 12 Ω krijg je 0,5 A. Klik op een onderdeel om de waarde aan te passen.',
+    win: 'Je hebt de wet van Ohm gebruikt: I = U / R.',
+    check: () => !shorted && comps.some(c => c.type === 'ampere' && A(A(sol.I[c.id]) - 0.5) < 0.01) },
+
+  { t: 'Foutzoeken: losse draad',
+    goal: 'Deze schakeling doet niets. Zoek de fout en repareer hem.',
+    needs: 'Alles ligt al op het bord',
+    hint: 'Kijk goed: is de kring overal gesloten? Eén draad ontbreekt.',
+    win: 'Een losse draad onderbreekt de kring, dus er loopt geen stroom.',
+    setup: () => load([['batterij', 200, 100], ['lamp', 420, 100], ['weerstand', 420, 300]], [[0, 1, 1, 0], [1, 1, 2, 1]]),
+    check: () => !shorted && anyLit() },
+
+  { t: 'Foutzoeken: voltmeter',
+    goal: 'Het lampje brandt bijna niet. Zoek de fout. Laat het lampje branden en laat de voltmeter de spanning over het lampje meten.',
+    needs: 'Alles ligt al op het bord',
+    hint: 'Een voltmeter hoort parallel aan het lampje, niet in serie. Verwijder een draad (klik erop en kies Verwijder) en sluit de voltmeter anders aan.',
+    win: 'Een voltmeter in serie laat bijna geen stroom door. Parallel meet hij de spanning.',
+    setup: () => load([['batterij', 200, 100], ['lamp', 420, 100], ['volt', 420, 300]], [[0, 1, 1, 0], [1, 1, 2, 1], [2, 0, 0, 0]]),
+    check: () => {
+      const L = lamps().find(l => lit(l, sol));
+      return !shorted && !!L && comps.some(c => c.type === 'volt' && sol.U[c.id] > 0.3 && A(sol.U[c.id] - sol.U[L.id]) < 0.05);
+    } },
+
+  { t: 'Kortsluiting oplossen',
+    goal: 'De batterij wordt heet! Zoek de oorzaak en los de kortsluiting op, zodat het lampje brandt.',
+    needs: 'Alles ligt al op het bord',
+    hint: 'Kortsluiting is een verbinding van + naar − zonder weerstand. Welk onderdeel staat los van het lampje direct op de batterij aangesloten? Klik erop.',
+    win: 'Een gesloten schakelaar parallel aan de batterij sluit kort. In huis beschermt een zekering hiertegen.',
+    setup: () => { load([['batterij', 300, 100], ['lamp', 300, 230], ['tuimel', 300, 360]], [[0, 0, 1, 0], [1, 0, 2, 0], [0, 1, 1, 1], [1, 1, 2, 1]]); comps[2].closed = true; },
+    check: () => !shorted && anyLit() }
 ];
+
+const done = new Set();
+let lastOk = false, hintOpen = false;
+
 function renderChallenges() {
-  $('challenges').innerHTML = '<h2>Opdrachten</h2>' +
-    CH.map((c, i) => `<button data-i="${i}" class="${i === cur ? 'on' : ''}">${c.t}</button>`).join('') +
-    `<p id="chText">${CH[cur].d}</p><p id="chStatus"></p>`;
+  const c = CH[cur];
+  let h = '<h2>Opdrachten</h2><div class="chlist">' +
+    CH.map((x, i) => `<button data-i="${i}" class="${i === cur ? 'on' : ''}">${done.has(i) ? '✓ ' : ''}${i ? i + '. ' : ''}${x.t}</button>`).join('') +
+    `</div><div class="chcard"><h3>${c.t}</h3><p>${c.goal}</p><p class="hint">Nodig: ${c.needs}</p>`;
+  if (c.hint) h += `<button id="hintBtn">${hintOpen ? 'Verberg tip' : 'Toon tip'}</button>` + (hintOpen ? `<p class="hint">${c.hint}</p>` : '');
+  if (c.check && lastOk) {
+    h += `<p class="good">✓ Gelukt!</p><p>${c.win}</p>`;
+    if (cur < CH.length - 1) h += '<button id="nextBtn">Volgende opdracht</button>';
+  }
+  $('challenges').innerHTML = h + '</div>';
+}
+function pickChallenge(i) {
+  cur = i; lastOk = false; hintOpen = false;
+  clearAll();
+  if (CH[cur].setup) CH[cur].setup();
+  renderChallenges();
 }
 $('challenges').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  cur = +b.dataset.i;
-  if (CH[cur].setup) CH[cur].setup(); else if (cur === 0) clearAll();
-  renderChallenges();
+  if (b.id === 'hintBtn') { hintOpen = !hintOpen; renderChallenges(); }
+  else if (b.id === 'nextBtn') pickChallenge(cur + 1);
+  else pickChallenge(+b.dataset.i);
 });
 function updateChallenge() {
-  const s = $('chStatus'), c = CH[cur];
-  if (s && c.check) s.innerHTML = c.check() ? '<span class="good">✓ Gelukt!</span>' : '';
+  const c = CH[cur];
+  if (!c.check) return;
+  const ok = !!c.check();
+  if (ok === lastOk) return;
+  lastOk = ok;
+  if (ok) done.add(cur);
+  renderChallenges();
 }
 
 /* ---------- Toolbar & setup ---------- */
