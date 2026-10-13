@@ -95,7 +95,6 @@ output { font-weight: 700; }
 .hint, #readout, #chText { color: var(--muted); }
 .good { color: var(--good); font-weight: 700; }
 
-
 .chcard { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
 .chcard h3 { margin: 0 0 6px; font-size: 0.95rem; }
 .chcard p { margin: 6px 0; }
@@ -171,7 +170,7 @@ button.primary { color: #fff; background: var(--accent); border-color: var(--acc
   .win .dialog::after, .win .m-icon, .win h2, .win .star.on { animation: none; }
 }
 
-/* Level map */
+/* Level map & Achievements UI */
 body.on-map main { display: none; }
 body:not(.on-map) #map { display: none; }
 body.on-map #btnMap, body.on-map #btnView, body.on-map #btnDir, body.on-map #btnClear { display: none; }
@@ -181,6 +180,64 @@ body.on-map #btnMap, body.on-map #btnView, body.on-map #btnDir, body.on-map #btn
 .prog { width: 100%; height: 10px; margin: 12px 0 4px; overflow: hidden; background: var(--line); border-radius: 99px; }
 .prog div { height: 100%; background: var(--good); border-radius: 99px; transition: width 0.5s; }
 .progtxt { align-self: flex-start; color: var(--muted); font-size: 0.85rem; }
+
+/* Trofeeën / Prestaties banner (Triomf/Gouden stijl) */
+.achievements-banner {
+  width: 100%;
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #fef08a 0%, #fde047 100%);
+  border: 2px solid #eab308;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.2);
+  color: #713f12;
+}
+.achievements-banner h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.badge-card {
+  background: rgba(255, 255, 255, 0.85);
+  padding: 10px 8px;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  transition: transform 0.2s;
+}
+.badge-card.unlocked {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+.badge-card.locked {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+.badge-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.badge-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin: 0;
+  color: #713f12;
+}
+.badge-desc {
+  font-size: 0.65rem;
+  margin: 2px 0 0;
+  color: #854d0e;
+}
+
 .unit {
   width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px;
   margin: 22px 0 14px; padding: 12px 16px; color: #fff; background: var(--good); border-radius: 12px;

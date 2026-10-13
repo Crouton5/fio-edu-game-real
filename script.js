@@ -503,8 +503,7 @@ function showModal(kind, o) {
   if (o.stars) $('mStars').innerHTML = [0, 1, 2].map(i =>
     i < o.stars ? `<span class="star on" style="--i:${i}">★</span>` : '<span class="star">☆</span>').join('');
   $('mPoints').hidden = !o.points;
-  if (o.points) countUp($('mPoints'), o.points);
-  $('mText').textContent = o.text;
+  if (o.points) countUp($('mPoints'), o.points);$('mText').textContent = o.text;
   $('mPrimary').textContent = o.primaryLabel;
   $('mSecondary').textContent = o.secondaryLabel || '';
   $('mSecondary').hidden = !o.secondaryLabel;
@@ -717,7 +716,7 @@ function updateChallenge() {
   if (first) winChallenge();
 }
 
-/* ---------- Level map (Duolingo-stijl) ---------- */
+/* ---------- Level map & Achievements (Duolingo-stijl) ---------- */
 const UNITS = [
   { t: 'Unit 1', s: 'Stroomkring en meten', from: 1, to: 5 },
   { t: 'Unit 2', s: 'Serie en parallel', from: 6, to: 8 },
@@ -726,8 +725,38 @@ const UNITS = [
 function renderMap() {
   const total = CH.length - 1, n = done.size;
   const cu = Array.from({ length: total }, (_, i) => i + 1).find(i => !done.has(i));   // eerstvolgende opdracht
-  let h = '<div class="maplane"><button class="free" data-i="0">🧪 Vrij bouwen</button>' +
+  
+  // Voortgang voor Achievements
+  const b1Unlocked = n >= 1;
+  const b2Unlocked = n >= 5;
+  const b3Unlocked = n >= total;
+
+  let h = `<div class="maplane">
+    <button class="free" data-i="0">🧪 Vrij bouwen</button>
+    
+    <!-- Prestaties & Trofeeën Banner -->
+    <div class="achievements-banner">
+      <h3>🏆 Jouw Triomfen & Prestaties</h3>
+      <div class="badges-grid">
+        <div class="badge-card ${b1Unlocked ? 'unlocked' : 'locked'}">
+          <div class="badge-icon">⚡</div>
+          <p class="badge-title">Eerste Vonk</p>
+          <p class="badge-desc">Rond 1 level af</p>
+        </div>
+        <div class="badge-card ${b2Unlocked ? 'unlocked' : 'locked'}">
+          <div class="badge-icon">🥈</div>
+          <p class="badge-title">Stroomexpert</p>
+          <p class="badge-desc">Voltooi Unit 1</p>
+        </div>
+        <div class="badge-card ${b3Unlocked ? 'unlocked' : 'locked'}">
+          <div class="badge-icon">🏆</div>
+          <p class="badge-title">Volt Kampioen</p>
+          <p class="badge-desc">Alle levels gehaald!</p>
+        </div>
+      </div>
+    </div>` +
     `<div class="prog"><div style="width:${n / total * 100}%"></div></div><span class="progtxt">${n} van ${total} opdrachten gehaald</span>`;
+
   UNITS.forEach(u => {
     let cnt = 0, nodes = '';
     for (let i = u.from; i <= u.to; i++) {
