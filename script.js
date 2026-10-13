@@ -36,7 +36,8 @@ let real = true, conv = false, shorted = false, cur = 0;
 let W = 0, H = 0, last = performance.now();
 
 const HANDLE = 50;   // afstand van het draaibolletje tot het midden
-const cv = $('board'), ctx = cv.getContext('2d');
+const cv = $('board');
+let ctx = cv.getContext('2d');
 
 /* ---------- Circuit model ---------- */
 function add(type, x, y) {
@@ -130,7 +131,7 @@ function update() {
 const L = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
 const rr = (x, y, w, h, f) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, 5); ctx.fillStyle = f; ctx.fill(); ctx.stroke(); };
 const ci = (r, f) => { ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fillStyle = f; ctx.fill(); ctx.stroke(); };
-let curRot = 0;
+let curRot = 0, noLabel = false;
 const text = (s, x, y, font, color) => {
   ctx.save(); ctx.translate(x, y); ctx.rotate(-curRot);
   ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(s, 0, 0);
@@ -220,7 +221,7 @@ function drawComp(c) {
   }
 
   ctx.restore(); curRot = 0;
-  if (c.type !== 'ampere' && c.type !== 'volt') {
+  if (noLabel) { /* icoon: geen label */ } else if (c.type !== 'ampere' && c.type !== 'volt') {
     const name = c.burned ? 'Lampje kapot' : T.n + (T.v !== undefined ? ' ' + fmt(c.val) + ' ' + T.u : '');
     text(name, 0, 34, '12px system-ui', MUTED);
   } else text(T.n, 0, 48, '12px system-ui', MUTED);
@@ -347,30 +348,44 @@ function removeSel() {
 }
 
 /* ---------- Palette (drag onto the board, or click to add) ---------- */
+function drawIcon(cn, type) {
+  const d = window.devicePixelRatio || 1, board = ctx, saved = sol;
+  cn.width = 64 * d; cn.height = 44 * d;
+  ctx = cn.getContext('2d');
+  ctx.setTransform(d * 0.7, 0, 0, d * 0.7, 32 * d, 22 * d);
+  sol = { I: { [-1]: 0 }, U: { [-1]: 0 }, wI: [] };
+  noLabel = true;
+  drawComp({ id: -1, type, x: 0, y: 0, rot: 0, val: TYPES[type].v, closed: true, pressed: false, burned: false });
+  noLabel = false; sol = saved; ctx = board;
+}
 (function buildPalette() {
-  let html = '', group = '';
+  let html = '<div class="sheethead"><b>Onderdelen</b><button id="palClose" aria-label="Sluiten">✕</button></div>', group = '';
   Object.entries(TYPES).forEach(([k, T]) => {
-    if (T.g !== group) { group = T.g; html += `<h2>${group}</h2>`; }
-    html += `<button data-t="${k}">${T.n}</button>`;
+    if (T.g !== group) { if (group) html += '</div>'; group = T.g; html += `<h2>${group}</h2><div class="grid">`; }
+    html += `<button data-t="${k}"><canvas class="ico"></canvas><span>${T.n}</span></button>`;
   });
-  $('palette').innerHTML = html;
+  $('palette').innerHTML = html + '</div>';
+  $('palette').querySelectorAll('button[data-t]').forEach(b => drawIcon(b.querySelector('canvas'), b.dataset.t));
   let dragType = null;
   $('palette').addEventListener('pointerdown', e => {
-    const b = e.target.closest('button'); if (!b) return;
+    const b = e.target.closest('button[data-t]'); if (!b) return;
     dragType = b.dataset.t; b.releasePointerCapture(e.pointerId);
   });
   window.addEventListener('pointerup', e => {
     if (!dragType) return;
     const r = cv.getBoundingClientRect();
-    if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) {
+    if (e.target === cv && e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) {
       sel = add(dragType, Math.max(50, Math.min(W - 50, e.clientX - r.left)), Math.max(40, Math.min(H - 50, e.clientY - r.top)));
       renderProps();
     }
     dragType = null;
   });
+  window.addEventListener('pointercancel', () => { dragType = null; });
   $('palette').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
+    if (!b.dataset.t) { document.body.classList.remove('show-pal'); return; }   // sluitknop
     sel = add(b.dataset.t, W / 2 + Math.random() * 80 - 40, H / 2 + Math.random() * 80 - 40);
+    document.body.classList.remove('show-pal');
     renderProps();
   });
 })();
@@ -378,6 +393,7 @@ function removeSel() {
 /* ---------- Properties panel ---------- */
 function renderProps() {
   const el = $('props');
+  el.classList.toggle('empty', !sel);
   if (!sel) { el.innerHTML = '<h2>Onderdeel</h2><p class="hint">Klik op een onderdeel om het aan te passen. Sleep van het ene aansluitpunt naar het andere om een draad te maken.</p>'; return; }
   if (!comps.includes(sel)) { el.innerHTML = '<h2>Draad</h2><button id="del">Verwijder draad</button>'; $('del').onclick = removeSel; return; }
   const T = TYPES[sel.type];
@@ -646,11 +662,13 @@ function renderChallenges() {
     h += `<p class="good">✓ Gelukt!</p><p>${c.win}</p>`;
     if (cur < CH.length - 1) h += '<button id="nextBtn">Volgende opdracht</button>';
   }
-  $('challenges').innerHTML = h + '</div>';
+  $('challenges').innerHTML = h + '</div><button id="chClose" class="mobonly primary">Begin met bouwen</button>';
 }
 function pickChallenge(i) {
   cur = i; lastOk = false; hintOpen = false; hintUsed = false; failed = false;
   closeModal();
+  document.body.classList.toggle('show-ch', cur > 0);   // telefoon: opdracht eerst tonen
+  document.body.classList.remove('show-pal');
   clearAll();
   if (CH[cur].setup) CH[cur].setup();
   shortT = 0; shortFired = !!CH[cur].startsShorted;
@@ -658,7 +676,8 @@ function pickChallenge(i) {
 }
 $('challenges').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.id === 'hintBtn') { hintOpen = !hintOpen; if (hintOpen) hintUsed = true; renderChallenges(); }
+  if (b.id === 'chClose') document.body.classList.remove('show-ch');
+  else if (b.id === 'hintBtn') { hintOpen = !hintOpen; if (hintOpen) hintUsed = true; renderChallenges(); }
   else if (b.id === 'nextBtn') pickChallenge(cur + 1);
   else pickChallenge(+b.dataset.i);
 });
@@ -724,11 +743,13 @@ $('btnMap').onclick = showMap;
 
 /* ---------- Toolbar & setup ---------- */
 function renderTools() {
-  $('btnView').textContent = 'Weergave: ' + (real ? 'Realistisch' : 'Schakelschema');
-  $('btnDir').textContent = 'Stroomrichting: ' + (conv ? 'Conventioneel (+ → −)' : 'Elektronen (− → +)');
+  $('btnView').innerHTML = '<span class="long">Weergave: </span>' + (real ? 'Realistisch' : 'Schakelschema');
+  $('btnDir').innerHTML = '<span class="long">Stroomrichting: </span>' + (conv ? 'Conventioneel (+ → −)' : 'Elektronen (− → +)');
 }
 $('btnView').onclick = () => { real = !real; renderTools(); };
 $('btnDir').onclick = () => { conv = !conv; renderTools(); };
+$('fabPal').onclick = () => { document.body.classList.toggle('show-pal'); document.body.classList.remove('show-ch'); };
+$('fabCh').onclick = () => { document.body.classList.toggle('show-ch'); document.body.classList.remove('show-pal'); };
 $('btnClear').onclick = () => { clearAll(); };
 
 function resize() {

@@ -95,11 +95,6 @@ output { font-weight: 700; }
 .hint, #readout, #chText { color: var(--muted); }
 .good { color: var(--good); font-weight: 700; }
 
-@media (max-width: 900px) {
-  main { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto; }
-  #palette { border-right: 0; border-bottom: 1px solid var(--line); }
-  aside { border-left: 0; border-top: 1px solid var(--line); }
-}
 
 .chcard { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
 .chcard h3 { margin: 0 0 6px; font-size: 0.95rem; }
@@ -227,24 +222,71 @@ body.on-map #btnMap, body.on-map #btnView, body.on-map #btnDir, body.on-map #btn
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 @media (prefers-reduced-motion: reduce) { .node.cur, .start, .node.shake { animation: none; } }
 
-/* Telefoon staand: onderdelen als compacte knoppen, het bord scrolt mee */
-@media (max-width: 900px) {
-  main { overflow-y: auto; }
-  #palette { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
-  #palette h2 { flex-basis: 100%; margin: 6px 0 0; }
-  #palette button { width: auto; margin: 0; }
+/* Toolbox met icoontjes */
+.sheethead, .fabs { display: none; }
+#challenges .mobonly { display: none; }
+#palette button[data-t] { display: flex; align-items: center; gap: 8px; padding: 3px 8px; }
+.ico { width: 48px; height: 33px; flex: none; }
+
+/* Telefoon: bord op volle grootte, toolbox en opdracht als pop-over */
+@media (max-width: 900px), (max-height: 520px) {
+  header { flex-wrap: nowrap; padding: 6px 10px; }
+  h1, .long { display: none; }
+  .tools { flex-wrap: nowrap; width: 100%; overflow-x: auto; }
+  .tools button, .score { flex: none; white-space: nowrap; }
+  .tools button { padding: 6px 10px; }
+  .score { padding: 3px 10px; }
+
+  main { display: block; position: relative; }
+  .stage { position: absolute; inset: 0; }
+  #banner { top: 64px; max-width: 92%; font-size: 0.9rem; }
+
+  .fabs { display: flex; position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3; justify-content: space-between; pointer-events: none; }
+  .fabs button { pointer-events: auto; padding: 10px 16px; font-weight: 700; border-radius: 99px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+  #fabPal { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+  /* toolbox: schuift van onderen omhoog */
+  #palette {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 8;
+    max-height: 60vh; padding: 0 12px 16px; overflow-y: auto;
+    background: var(--panel); border: 0; border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+    visibility: hidden; transform: translateY(105%);
+    transition: transform 0.25s ease, visibility 0.25s;
+  }
+  body.show-pal #palette { visibility: visible; transform: none; }
+  .sheethead { display: flex; position: sticky; top: 0; z-index: 1; align-items: center; justify-content: space-between; padding: 12px 0 4px; background: var(--panel); font-size: 1.05rem; }
+  #palette .sheethead button { width: auto; margin: 0; padding: 4px 12px; }
+  #palette h2 { margin: 10px 0 6px; }
+  #palette .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  #palette button[data-t] { flex-direction: column; justify-content: center; gap: 2px; margin: 0; padding: 8px 4px; font-size: 0.78rem; text-align: center; touch-action: manipulation; }
+  .ico { width: 64px; height: 44px; }
+
+  /* eigenschappen: balk onderin, alleen als er iets geselecteerd is */
+  aside { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; padding: 0; overflow: visible; background: transparent; border: 0; pointer-events: none; }
+  #props { pointer-events: auto; max-height: 38vh; margin: 8px; padding: 10px 12px; overflow-y: auto; background: var(--panel); border-radius: 14px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25); }
+  #props.empty, body.show-pal #props { display: none; }
+  #props h2 { margin: 0 0 6px; }
+  #props .hint { display: none; }
+
+  /* opdracht: pop-over */
+  #challenges { display: none; }
+  body.show-ch #challenges {
+    display: block; pointer-events: auto; position: fixed; z-index: 9; top: 64px; left: 10px; right: 10px;
+    max-height: calc(100% - 140px); padding: 4px 14px 14px; overflow-y: auto;
+    background: var(--panel); border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    animation: pop 0.2s ease;
+  }
+  body.show-pal #challenges { display: none; }
+  #challenges .mobonly { display: block; margin-top: 10px; }
+  #challenges .chcard { border: 0; padding: 0; }
 }
 
-/* Telefoon liggend: drie kolommen houden, alles iets kleiner */
-@media (max-height: 500px) and (orientation: landscape) {
-  header { padding: 4px 12px; }
-  h1 { font-size: 1rem; }
-  button { padding: 5px 10px; }
-  .score { padding: 2px 10px; }
-  main { grid-template-columns: 150px minmax(0, 1fr) 210px; grid-template-rows: none; overflow: hidden; }
-  #palette { display: block; border-right: 1px solid var(--line); border-bottom: 0; }
-  #palette h2 { margin: 12px 0 6px; }
-  #palette button { width: 100%; margin-bottom: 3px; padding: 4px 8px; font-size: 0.85rem; }
-  aside { border-left: 1px solid var(--line); border-top: 0; }
-  #map { padding-top: 8px; }
+/* Telefoon liggend: toolbox en opdracht komen van rechts */
+@media (max-height: 520px) and (orientation: landscape) {
+  #palette { left: auto; top: 0; width: min(380px, 65vw); max-height: none; border-radius: 16px 0 0 16px; transform: translateX(105%); box-shadow: -8px 0 30px rgba(0, 0, 0, 0.25); }
+  body.show-pal #palette { transform: none; }
+  body.show-ch #challenges { left: auto; top: 58px; width: min(420px, 60vw); max-height: calc(100% - 70px); }
+  #props { max-width: 480px; margin-right: auto; }
+  #banner { top: 58px; }
 }
