@@ -35,6 +35,31 @@ let sol = { I: {}, U: {}, wI: [] };
 let real = true, conv = false, shorted = false, cur = 0;
 let W = 0, H = 0, last = performance.now();
 
+/* ---------- Background Audio Setup ---------- */
+const bgMusic = new Audio('background.mp3');
+bgMusic.loop = true;
+let musicPlaying = false;
+
+function toggleMusic() {
+  if (musicPlaying) {
+    bgMusic.pause();
+    musicPlaying = false;
+    $('btnMusic').textContent = '🎵 Muziek: Uit';
+    $('btnMusic').classList.remove('on');
+    toast('Muziek uitgezet');
+  } else {
+    bgMusic.play().then(() => {
+      musicPlaying = true;
+      $('btnMusic').textContent = '🎵 Muziek: Aan';
+      $('btnMusic').classList.add('on');
+      toast('Muziek aangezet');
+    }).catch(e => {
+      console.warn('Audio afspelen mislukt of autoplay geblokkeerd:', e);
+      toast('Kan muziek niet starten (controleer background.mp3)');
+    });
+  }
+}
+
 const HANDLE = 50;   // afstand van het draaibolletje tot het midden
 const cv = $('board');
 let ctx = cv.getContext('2d');
@@ -364,8 +389,7 @@ function drawIcon(cn, type) {
     if (T.g !== group) { if (group) html += '</div>'; group = T.g; html += `<h2>${group}</h2><div class="grid">`; }
     html += `<button data-t="${k}"><canvas class="ico"></canvas><span>${T.n}</span></button>`;
   });
-  $('palette').innerHTML = html + '</div>';
-  $('palette').querySelectorAll('button[data-t]').forEach(b => drawIcon(b.querySelector('canvas'), b.dataset.t));
+  $('palette').innerHTML = html + '</div>';$('palette').querySelectorAll('button[data-t]').forEach(b => drawIcon(b.querySelector('canvas'), b.dataset.t));
   let dragType = null;
   $('palette').addEventListener('pointerdown', e => {
     const b = e.target.closest('button[data-t]'); if (!b) return;
@@ -406,11 +430,9 @@ function renderProps() {
   h += '<p id="readout"></p><button id="del">Verwijder</button>';
   el.innerHTML = h;
   if ($('val')) $('val').oninput = e => { sel.val = +e.target.value; $('valOut').textContent = fmt(sel.val) + ' ' + T.u; };
-  if ($('tog')) $('tog').onclick = () => { sel.closed = !sel.closed; renderProps(); };
-  if ($('fix')) $('fix').onclick = () => { sel.burned = false; renderProps(); };
-  $('rotL').onclick = () => rotate(sel, -90);
-  $('rotR').onclick = () => rotate(sel, 90);
-  $('del').onclick = removeSel;
+  if ($('tog'))$('tog').onclick = () => { sel.closed = !sel.closed; renderProps(); };
+  if ($('fix')) $('fix').onclick = () => { sel.burned = false; renderProps(); };$('rotL').onclick = () => rotate(sel, -90);
+  $('rotR').onclick = () => rotate(sel, 90);$('del').onclick = removeSel;
 }
 function updateReadout() {
   const r = $('readout');
@@ -425,8 +447,7 @@ const POINTS = 150;
 let points = 0, stars = 0, shortT = 0, shortFired = false, burnW = 0, hintUsed = false, failed = false, modalAct = null;
 
 function renderScore() {
-  $('scorePts').textContent = points + ' punten';
-  $('scoreStars').textContent = '★ ' + stars;
+  $('scorePts').textContent = points + ' punten';$('scoreStars').textContent = '★ ' + stars;
 }
 function bump(id) { const e = $(id); e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
 
@@ -491,8 +512,7 @@ function showModal(kind, o) {
   $('mPrimary').focus();
 }
 const closeModal = () => { $('modal').hidden = true; };
-$('mPrimary').onclick = () => { closeModal(); if (modalAct) modalAct(); };
-$('mSecondary').onclick = closeModal;
+$('mPrimary').onclick = () => { closeModal(); if (modalAct) modalAct(); };$('mSecondary').onclick = closeModal;
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
 
 function winChallenge() {
@@ -630,10 +650,10 @@ const CH = [
     } },
 
   { t: 'Kortsluiting oplossen', startsShorted: true,
-    goal: 'De batterij wordt heet! Zoek de oorzaak en los de kortsluiting op, zodat het lampje brandt.',
+    goal: 'Laat de batterij niet heet worden! Los de kortsluiting op zodat het lampje brandt.',
     needs: 'Alles ligt al op het bord',
-    hint: 'Kortsluiting is een verbinding van + naar − zonder weerstand. Welk onderdeel staat los van het lampje direct op de batterij aangesloten? Klik erop.',
-    win: 'Een gesloten schakelaar parallel aan de batterij sluit kort. In huis beschermt een zekering hiertegen.',
+    hint: 'Kortsluiting is een verbinding van + naar − zonder weerstand. Welk onderdeel staat direct op de batterij aangesloten?',
+    win: 'Een gesloten schakelaar parallel aan de batterij sluit kort.',
     setup: () => { load([['batterij', 300, 100], ['lamp', 300, 230], ['tuimel', 300, 360]], [[0, 0, 1, 0], [1, 0, 2, 0], [0, 1, 1, 1], [1, 1, 2, 1]]); comps[2].closed = true; },
     check: () => !shorted && anyLit() }
 ];
@@ -730,16 +750,7 @@ function toast(m) {
   const t = $('toast'); t.textContent = m; t.hidden = false;
   clearTimeout(toast.id); toast.id = setTimeout(() => { t.hidden = true; }, 2000);
 }
-$('map').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  if (b.classList.contains('lock')) {
-    b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
-    toast('Rond eerst de vorige opdracht af.');
-    return;
-  }
-  pickChallenge(+b.dataset.i); showGame();
-});
-$('btnMap').onclick = showMap;
+$('map').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.classList.contains('lock')) { b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); toast('Rond eerst de vorige opdracht af.'); return; } pickChallenge(+b.dataset.i); showGame(); });$('btnMap').onclick = showMap;
 
 /* ---------- Toolbar & setup ---------- */
 function renderTools() {
@@ -747,10 +758,9 @@ function renderTools() {
   $('btnDir').innerHTML = '<span class="long">Stroomrichting: </span>' + (conv ? 'Conventioneel (+ → −)' : 'Elektronen (− → +)');
 }
 $('btnView').onclick = () => { real = !real; renderTools(); };
-$('btnDir').onclick = () => { conv = !conv; renderTools(); };
+$('btnDir').onclick = () => { conv = !conv; renderTools(); };$('btnMusic').onclick = toggleMusic;
 $('fabPal').onclick = () => { document.body.classList.toggle('show-pal'); document.body.classList.remove('show-ch'); };
-$('fabCh').onclick = () => { document.body.classList.toggle('show-ch'); document.body.classList.remove('show-pal'); };
-$('btnClear').onclick = () => { clearAll(); };
+$('fabCh').onclick = () => { document.body.classList.toggle('show-ch'); document.body.classList.remove('show-pal'); };$('btnClear').onclick = () => { clearAll(); };
 
 function resize() {
   const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
