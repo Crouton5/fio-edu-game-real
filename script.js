@@ -35,11 +35,12 @@ let sol = { I: {}, U: {}, wI: [] };
 let real = true, conv = false, shorted = false, cur = 0;
 let W = 0, H = 0, last = performance.now();
 
+const HANDLE = 50;   // afstand van het draaibolletje tot het midden
 const cv = $('board'), ctx = cv.getContext('2d');
 
 /* ---------- Circuit model ---------- */
 function add(type, x, y) {
-  const c = { id: nextId++, type, x, y, val: TYPES[type].v, closed: false, pressed: false, burned: false };
+  const c = { id: nextId++, type, x, y, val: TYPES[type].v, rot: 0, closed: false, pressed: false, burned: false };
   comps.push(c);
   return c;
 }
@@ -50,7 +51,10 @@ function load(list, ws) {
   ws.forEach(([i, a, j, b]) => wires.push({ a: comps[i].id + ':' + a, b: comps[j].id + ':' + b }));
 }
 const byId = id => comps.find(c => c.id === id);
-const tp = k => { const [i, t] = k.split(':'); const c = byId(+i); return { x: c.x + (t === '1' ? 40 : -40), y: c.y }; };
+const tp = k => {
+  const [i, t] = k.split(':'), c = byId(+i), d = t === '1' ? 40 : -40;
+  return { x: c.x + d * Math.cos(c.rot), y: c.y + d * Math.sin(c.rot) };
+};
 
 function res(c, open) {
   if (c.id === open) return 1e9;
@@ -126,14 +130,22 @@ function update() {
 const L = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
 const rr = (x, y, w, h, f) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, 5); ctx.fillStyle = f; ctx.fill(); ctx.stroke(); };
 const ci = (r, f) => { ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fillStyle = f; ctx.fill(); ctx.stroke(); };
-const text = (s, x, y, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(s, x, y); };
+let curRot = 0;
+const text = (s, x, y, font, color) => {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-curRot);
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(s, 0, 0);
+  ctx.restore();
+};
 
 function drawComp(c) {
   const I = sol.I[c.id] || 0, U = sol.U[c.id] || 0, T = TYPES[c.type];
   ctx.save();
   ctx.translate(c.x, c.y);
+  curRot = c.rot; ctx.save(); ctx.rotate(c.rot);
   ctx.lineWidth = 2.5; ctx.strokeStyle = INK; ctx.lineCap = 'round';
-  if (c === sel) { ctx.setLineDash([5, 4]); ctx.strokeStyle = ACC; ctx.strokeRect(-46, -32, 92, 64); ctx.setLineDash([]); ctx.strokeStyle = INK; }
+  if (c === sel) { ctx.setLineDash([5, 4]); ctx.strokeStyle = ACC; ctx.strokeRect(-46, -32, 92, 64); ctx.setLineDash([]);
+    ctx.strokeStyle = ACC; L(0, -32, 0, -HANDLE); ctx.beginPath(); ctx.arc(0, -HANDLE, 7, 0, 7); ctx.fillStyle = ACC; ctx.fill();
+    ctx.strokeStyle = INK; }
   L(-40, 0, -20, 0); L(20, 0, 40, 0);
 
   switch (c.type) {
@@ -207,6 +219,7 @@ function drawComp(c) {
       break;
   }
 
+  ctx.restore(); curRot = 0;
   if (c.type !== 'ampere' && c.type !== 'volt') {
     const name = c.burned ? 'Lampje kapot' : T.n + (T.v !== undefined ? ' ' + fmt(c.val) + ' ' + T.u : '');
     text(name, 0, 34, '12px system-ui', MUTED);
@@ -262,6 +275,13 @@ function frame(t) {
 
 /* ---------- Interaction ---------- */
 const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+function setRot(c, r) {
+  let deg = r * 180 / Math.PI;
+  const step = Math.round(deg / 15) * 15;
+  if (Math.abs(deg - step) < 4) deg = step;          // magnetisch: klikt vast op elke 15°
+  c.rot = deg * Math.PI / 180;
+}
+const rotate = (c, deg) => { c.rot += deg * Math.PI / 180; };
 function nearTerm(p, max, skip) {
   let best = null, bd = max;
   comps.forEach(c => [0, 1].forEach(t => {
@@ -278,9 +298,15 @@ function distSeg(p, a, b) {
 
 cv.addEventListener('pointerdown', e => {
   const p = pos(e); cv.setPointerCapture(e.pointerId);
+  if (comps.includes(sel) && Math.hypot(p.x - (sel.x + HANDLE * Math.sin(sel.rot)), p.y - (sel.y - HANDLE * Math.cos(sel.rot))) < 11) {
+    drag = { kind: 'rot', c: sel }; return;
+  }
   const k = nearTerm(p, 12);
   if (k) { drag = { kind: 'wire', from: k, p }; return; }
-  const c = [...comps].reverse().find(c => Math.abs(p.x - c.x) < 26 && Math.abs(p.y - c.y) < 22);
+  const c = [...comps].reverse().find(c => {
+    const dx = p.x - c.x, dy = p.y - c.y, sn = Math.sin(c.rot), cs = Math.cos(c.rot);
+    return Math.abs(dx * cs + dy * sn) < 26 && Math.abs(-dx * sn + dy * cs) < 22;
+  });
   if (c) {
     sel = c; drag = { kind: 'comp', c, dx: p.x - c.x, dy: p.y - c.y, sx: p.x, sy: p.y, moved: false };
     if (c.type === 'druk') c.pressed = true;
@@ -290,6 +316,7 @@ cv.addEventListener('pointerdown', e => {
 cv.addEventListener('pointermove', e => {
   if (!drag) return;
   const p = pos(e);
+  if (drag.kind === 'rot') { setRot(drag.c, Math.atan2(p.y - drag.c.y, p.x - drag.c.x) + Math.PI / 2); return; }
   if (drag.kind === 'wire') { drag.p = p; snap = nearTerm(p, 22, drag.from); }
   else {
     if (Math.hypot(p.x - drag.sx, p.y - drag.sy) > 4) drag.moved = true;
@@ -310,6 +337,7 @@ cv.addEventListener('pointerup', endDrag);
 cv.addEventListener('pointercancel', endDrag);
 
 window.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'r' && comps.includes(sel) && e.target.tagName !== 'INPUT') rotate(sel, e.shiftKey ? -90 : 90);
   if ((e.key === 'Delete' || e.key === 'Backspace') && sel && e.target.tagName !== 'INPUT') removeSel();
 });
 function removeSel() {
@@ -358,11 +386,14 @@ function renderProps() {
   if (sel.type === 'tuimel') h += `<button id="tog">${sel.closed ? 'Schakelaar openen' : 'Schakelaar sluiten'}</button> `;
   if (sel.type === 'druk') h += '<p class="hint">Houd de knop ingedrukt op het bord.</p>';
   if (sel.burned) h += '<button id="fix">Herstel lampje</button> ';
+  h += '<p class="hint">Draaien: sleep het blauwe bolletje, gebruik de knoppen of druk op R.</p><button id="rotL">↺ 90°</button> <button id="rotR">↻ 90°</button> ';
   h += '<p id="readout"></p><button id="del">Verwijder</button>';
   el.innerHTML = h;
   if ($('val')) $('val').oninput = e => { sel.val = +e.target.value; $('valOut').textContent = fmt(sel.val) + ' ' + T.u; };
   if ($('tog')) $('tog').onclick = () => { sel.closed = !sel.closed; renderProps(); };
   if ($('fix')) $('fix').onclick = () => { sel.burned = false; renderProps(); };
+  $('rotL').onclick = () => rotate(sel, -90);
+  $('rotR').onclick = () => rotate(sel, 90);
   $('del').onclick = removeSel;
 }
 function updateReadout() {
