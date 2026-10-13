@@ -414,14 +414,58 @@ function renderScore() {
 }
 function bump(id) { const e = $(id); e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
 
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Confetti: twee kanonnen onderin en een bui van boven */
+const fx = $('confetti'), fctx = fx.getContext('2d');
+let bits = [], fxOn = false;
+function confetti() {
+  if (calm()) return;
+  const d = window.devicePixelRatio || 1, w = innerWidth, h = innerHeight;
+  fx.width = w * d; fx.height = h * d; fctx.setTransform(d, 0, 0, d, 0, 0);
+  const cols = ['#0b6bcb', '#15803d', '#e0a100', '#c2410c', '#d946ef', '#06b6d4'];
+  const mk = (x, y, vx, vy, drag) => bits.push({
+    x, y, vx, vy, drag, w: 6 + Math.random() * 6, h: 8 + Math.random() * 8,
+    r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, f: Math.random() * 6, c: cols[Math.random() * cols.length | 0]
+  });
+  for (let i = 0; i < 80; i++) {
+    const a = 0.3 + (Math.random() - 0.5) * 0.7, v = 14 + Math.random() * 10;
+    mk(0, h, Math.sin(a) * v, -Math.cos(a) * v, 0.99);
+    mk(w, h, -Math.sin(a) * v, -Math.cos(a) * v, 0.99);
+  }
+  for (let i = 0; i < 70; i++) mk(Math.random() * w, -20 - Math.random() * 200, (Math.random() - 0.5) * 2, 1 + Math.random() * 2, 0.94);
+  if (!fxOn) { fxOn = true; requestAnimationFrame(stepFx); }
+}
+function stepFx() {
+  fctx.clearRect(0, 0, innerWidth, innerHeight);
+  bits = bits.filter(b => b.y < innerHeight + 30);
+  bits.forEach(b => {
+    b.vy += 0.35; b.vx *= b.drag; b.vy *= b.drag; b.x += b.vx; b.y += b.vy; b.r += b.vr; b.f += 0.15;
+    fctx.save(); fctx.translate(b.x, b.y); fctx.rotate(b.r); fctx.scale(1, Math.cos(b.f));
+    fctx.fillStyle = b.c; fctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); fctx.restore();
+  });
+  if (bits.length) requestAnimationFrame(stepFx); else fxOn = false;
+}
+
+function countUp(el, to) {
+  const t0 = performance.now();
+  const step = t => {
+    const k = calm() ? 1 : Math.min(1, (t - t0) / 700);
+    el.textContent = '+' + Math.round(to * k) + ' punten';
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function showModal(kind, o) {
   $('modal').className = 'overlay ' + kind;
   $('mIcon').textContent = o.icon;
   $('mTitle').textContent = o.title;
   $('mStars').hidden = !o.stars;
-  if (o.stars) $('mStars').textContent = '★'.repeat(o.stars) + '☆'.repeat(3 - o.stars);
+  if (o.stars) $('mStars').innerHTML = [0, 1, 2].map(i =>
+    i < o.stars ? `<span class="star on" style="--i:${i}">★</span>` : '<span class="star">☆</span>').join('');
   $('mPoints').hidden = !o.points;
-  if (o.points) $('mPoints').textContent = '+' + o.points + ' punten';
+  if (o.points) countUp($('mPoints'), o.points);
   $('mText').textContent = o.text;
   $('mPrimary').textContent = o.primaryLabel;
   $('mSecondary').textContent = o.secondaryLabel || '';
@@ -442,10 +486,11 @@ function winChallenge() {
   const last = cur >= CH.length - 1;
   showModal('win', {
     icon: '🏆', title: 'You Win!', stars: n, points: POINTS,
-    text: `Gefeliciteerd! Je hebt "${CH[cur].t}" afgerond. ${CH[cur].win}`,
+    text: `${['', 'Goed gedaan, volgende keer nog beter!', 'Mooi gedaan!', 'Perfect! Zonder tip en zonder fouten.'][n]} Je hebt "${CH[cur].t}" afgerond. ${CH[cur].win}`,
     primaryLabel: last ? 'Klaar' : 'Volgende opdracht', secondaryLabel: 'Blijf bouwen',
     onPrimary: () => { if (!last) pickChallenge(cur + 1); }
   });
+  confetti();
 }
 function lose(kind, w) {
   failed = true;

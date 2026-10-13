@@ -149,3 +149,29 @@ button.primary { color: #fff; background: var(--accent); border-color: var(--acc
 @keyframes pop { from { opacity: 0; transform: scale(0.88); } }
 @keyframes bump { 40% { transform: scale(1.25); } }
 @media (prefers-reduced-motion: reduce) { .overlay, .dialog, .bump { animation: none; } }
+
+/* Feest bij winst */
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+.dialog { position: relative; }
+.win .dialog::after {
+  content: ""; position: absolute; inset: 0; border-radius: 14px; pointer-events: none;
+  animation: ring 0.9s ease-out 0.15s both;
+}
+.win .m-icon { display: inline-block; font-size: 3.2rem; animation: trophy 0.8s ease 0.1s both; }
+.win h2 {
+  background: linear-gradient(90deg, var(--good), var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: title 0.6s cubic-bezier(0.2, 1.5, 0.4, 1) 0.1s both;
+}
+.star { display: inline-block; }
+.star:not(.on) { opacity: 0.35; }
+.win .star.on { animation: starpop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both; animation-delay: calc(0.35s + var(--i) * 0.2s); }
+.win .m-points { font-size: 1.3rem; color: var(--good); }
+
+@keyframes ring { from { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.5); } to { box-shadow: 0 0 0 30px rgba(21, 128, 61, 0); } }
+@keyframes trophy { 0% { transform: scale(0.4) rotate(-20deg); } 40% { transform: scale(1.25) rotate(12deg); } 70% { transform: scale(0.95) rotate(-6deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes title { from { opacity: 0; transform: scale(0.6) translateY(10px); } }
+@keyframes starpop { from { opacity: 0; transform: scale(0) rotate(-120deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .win .dialog::after, .win .m-icon, .win h2, .win .star.on { animation: none; }
+}
