@@ -6,7 +6,7 @@
   <title>Stroomkring-sandbox</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="on-map">
   <header>
     <h1>Stroomkring-sandbox</h1>
     <div class="tools">
@@ -14,11 +14,14 @@
         <span id="scorePts">0 punten</span>
         <span id="scoreStars">★ 0</span>
       </div>
+      <button id="btnMap">Levels</button>
       <button id="btnView"></button>
       <button id="btnDir"></button>
       <button id="btnClear">Alles wissen</button>
     </div>
   </header>
+
+  <section id="map" aria-label="Levels"></section>
 
   <main>
     <nav id="palette" aria-label="Onderdelen"></nav>
@@ -46,8 +49,9 @@
     </div>
   </div>
 
+  <div id="toast" class="toast" hidden></div>
   <canvas id="confetti" aria-hidden="true"></canvas>
 
   <script src="script.js"></script>
 </body>
-</html>
+</html> 

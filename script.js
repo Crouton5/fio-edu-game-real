@@ -482,13 +482,14 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').
 function winChallenge() {
   const n = Math.max(1, 3 - (hintUsed ? 1 : 0) - (failed ? 1 : 0));   // 3 sterren: zonder tip en zonder fout
   points += POINTS; stars += n;
+  starsBy[cur] = n; save();
   renderScore(); bump('scorePts'); bump('scoreStars');
   const last = cur >= CH.length - 1;
   showModal('win', {
     icon: '🏆', title: 'You Win!', stars: n, points: POINTS,
     text: `${['', 'Goed gedaan, volgende keer nog beter!', 'Mooi gedaan!', 'Perfect! Zonder tip en zonder fouten.'][n]} Je hebt "${CH[cur].t}" afgerond. ${CH[cur].win}`,
     primaryLabel: last ? 'Klaar' : 'Volgende opdracht', secondaryLabel: 'Blijf bouwen',
-    onPrimary: () => { if (!last) pickChallenge(cur + 1); }
+    onPrimary: () => { if (last) showMap(); else pickChallenge(cur + 1); }
   });
   confetti();
 }
@@ -622,13 +623,24 @@ const CH = [
 ];
 
 const done = new Set();
+let starsBy = {};
+const SAVE_KEY = 'stroomkring-voortgang';
+function save() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ points, stars, done: [...done], starsBy })); } catch (e) { /* geen opslag beschikbaar */ }
+}
+function loadSave() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (!d) return;
+    points = d.points | 0; stars = d.stars | 0; starsBy = d.starsBy || {};
+    (d.done || []).forEach(i => done.add(i));
+  } catch (e) { /* kapotte opslag negeren */ }
+}
 let lastOk = false, hintOpen = false;
 
 function renderChallenges() {
   const c = CH[cur];
-  let h = '<h2>Opdrachten</h2><div class="chlist">' +
-    CH.map((x, i) => `<button data-i="${i}" class="${i === cur ? 'on' : ''}">${done.has(i) ? '✓ ' : ''}${i ? i + '. ' : ''}${x.t}</button>`).join('') +
-    `</div><div class="chcard"><h3>${c.t}</h3><p>${c.goal}</p><p class="hint">Nodig: ${c.needs}</p>`;
+  let h = `<h2>Opdracht ${cur ? cur + ' van ' + (CH.length - 1) : ''}</h2><div class="chcard"><h3>${c.t}</h3><p>${c.goal}</p><p class="hint">Nodig: ${c.needs}</p>`;
   if (c.hint) h += `<button id="hintBtn">${hintOpen ? 'Verberg tip' : 'Toon tip'}</button>` + (hintOpen ? `<p class="hint">${c.hint}</p>` : '');
   if (c.check && lastOk) {
     h += `<p class="good">✓ Gelukt!</p><p>${c.win}</p>`;
@@ -662,6 +674,54 @@ function updateChallenge() {
   if (first) winChallenge();
 }
 
+/* ---------- Level map (Duolingo-stijl) ---------- */
+const UNITS = [
+  { t: 'Unit 1', s: 'Stroomkring en meten', from: 1, to: 5 },
+  { t: 'Unit 2', s: 'Serie en parallel', from: 6, to: 8 },
+  { t: 'Unit 3', s: 'Foutzoeken en veiligheid', from: 9, to: 11 }
+];
+function renderMap() {
+  const total = CH.length - 1, n = done.size;
+  const cu = Array.from({ length: total }, (_, i) => i + 1).find(i => !done.has(i));   // eerstvolgende opdracht
+  let h = '<div class="maplane"><button class="free" data-i="0">🧪 Vrij bouwen</button>' +
+    `<div class="prog"><div style="width:${n / total * 100}%"></div></div><span class="progtxt">${n} van ${total} opdrachten gehaald</span>`;
+  UNITS.forEach(u => {
+    let cnt = 0, nodes = '';
+    for (let i = u.from; i <= u.to; i++) {
+      const st = done.has(i) ? 'done' : i === cu ? 'cur' : 'lock';
+      if (st === 'done') cnt++;
+      const sc = starsBy[i] || 1;
+      nodes += `<div class="nodewrap" style="--x:${Math.round(Math.sin((i - 1) * 1.1) * 58)}px">` +
+        (st === 'cur' ? '<span class="start">START</span>' : '') +
+        `<button class="node ${st}" data-i="${i}" aria-label="${CH[i].t}">${{ done: '✓', cur: '★', lock: '🔒' }[st]}</button>` +
+        `<span class="nlabel">${CH[i].t}</span><span class="nstars">${st === 'done' ? '★'.repeat(sc) + '☆'.repeat(3 - sc) : ''}</span></div>`;
+    }
+    h += `<div class="unit"><div><b>${u.t}</b><span>${u.s}</span></div><span class="ucount">${cnt}/${u.to - u.from + 1}</span></div><div class="path">${nodes}</div>`;
+  });
+  $('map').innerHTML = h + '</div>';
+}
+function showMap() {
+  document.body.classList.add('on-map');
+  renderMap();
+  const el = $('map').querySelector('.node.cur');
+  if (el) el.scrollIntoView({ block: 'center' });
+}
+function showGame() { document.body.classList.remove('on-map'); resize(); }
+function toast(m) {
+  const t = $('toast'); t.textContent = m; t.hidden = false;
+  clearTimeout(toast.id); toast.id = setTimeout(() => { t.hidden = true; }, 2000);
+}
+$('map').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.classList.contains('lock')) {
+    b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+    toast('Rond eerst de vorige opdracht af.');
+    return;
+  }
+  pickChallenge(+b.dataset.i); showGame();
+});
+$('btnMap').onclick = showMap;
+
 /* ---------- Toolbar & setup ---------- */
 function renderTools() {
   $('btnView').textContent = 'Weergave: ' + (real ? 'Realistisch' : 'Schakelschema');
@@ -679,5 +739,5 @@ function resize() {
 }
 new ResizeObserver(resize).observe(cv);
 
-renderTools(); renderProps(); renderChallenges(); renderScore(); resize();
+loadSave(); renderTools(); renderProps(); renderChallenges(); renderScore(); resize(); showMap();
 requestAnimationFrame(frame);
