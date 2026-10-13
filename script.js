@@ -135,6 +135,7 @@ function solve(open) {
 const bright = (c, s) => c.burned ? 0 : Math.min(1, Math.sqrt(s.I[c.id] ** 2 * c.val / FULL_W));
 const lit = (c, s) => bright(c, s) > 0.2;
 
+let shortT = 0, shortFired = false, burnW = 0;
 function update() {
   sol = solve();
   let burnt = false;
@@ -444,7 +445,7 @@ function updateReadout() {
 
 /* ---------- Beloning & pop-ups ---------- */
 const POINTS = 150;
-let points = 0, stars = 0, shortT = 0, shortFired = false, burnW = 0, hintUsed = false, failed = false, modalAct = null;
+let points = 0, stars = 0, hintUsed = false, failed = false, modalAct = null, modalSecAct = null;
 
 function renderScore() {
   $('scorePts').textContent = points + ' punten';$('scoreStars').textContent = '★ ' + stars;
@@ -508,11 +509,12 @@ function showModal(kind, o) {
   $('mSecondary').textContent = o.secondaryLabel || '';
   $('mSecondary').hidden = !o.secondaryLabel;
   modalAct = o.onPrimary;
+  modalSecAct = o.onSecondary || closeModal;
   $('modal').hidden = false;
   $('mPrimary').focus();
 }
 const closeModal = () => { $('modal').hidden = true; };
-$('mPrimary').onclick = () => { closeModal(); if (modalAct) modalAct(); };$('mSecondary').onclick = closeModal;
+$('mPrimary').onclick = () => { closeModal(); if (modalAct) modalAct(); };$('mSecondary').onclick = () => { closeModal(); if (modalSecAct) modalSecAct(); };
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
 
 function winChallenge() {
@@ -524,8 +526,10 @@ function winChallenge() {
   showModal('win', {
     icon: '🏆', title: 'You Win!', stars: n, points: POINTS,
     text: `${['', 'Goed gedaan, volgende keer nog beter!', 'Mooi gedaan!', 'Perfect! Zonder tip en zonder fouten.'][n]} Je hebt "${CH[cur].t}" afgerond. ${CH[cur].win}`,
-    primaryLabel: last ? 'Klaar' : 'Volgende opdracht', secondaryLabel: 'Blijf bouwen',
-    onPrimary: () => { if (last) showMap(); else pickChallenge(cur + 1); }
+    primaryLabel: last ? 'Klaar' : 'Volgende opdracht',
+    secondaryLabel: 'Naar leveloverzicht',
+    onPrimary: () => { if (last) showMap(); else pickChallenge(cur + 1); },
+    onSecondary: () => { showMap(); }
   });
   confetti();
 }
